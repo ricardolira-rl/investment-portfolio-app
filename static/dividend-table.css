@@ -1,0 +1,24 @@
+.dividend-history-panel { margin-bottom: 24px; background: white; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.dividend-history-table { min-width: 1500px; font-variant-numeric: tabular-nums; }
+.dividend-history-table th { position: sticky; top: 0; background: #f7f9f7; white-space: nowrap; }
+.dividend-history-table td { white-space: nowrap; }
+.dividend-history-table .ticker-cell { font-weight: 800; color: var(--green); }
+.dividend-history-table .segment-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.dividend-history-table .money-cell, .dividend-history-table .percent-cell { text-align: right; }
+.growth-status { display: inline-block; padding: 6px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+.growth-status.yes { background: #dff1e8; color: #174f3c; }
+.growth-status.partial { background: #f5edd8; color: #806220; }
+.growth-status.no { background: #f8e5e5; color: #963d3d; }
+.growth-status.insufficient { background: #ecefed; color: #6f7b75; }
+.table-note { padding: 12px 24px 18px; color: var(--muted); font-size: 10px; }
+.history-actions { display: flex; align-items: center; gap: 14px; }
+.collapse-button { padding: 8px 11px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--green); font: 700 11px "DM Sans"; cursor: pointer; }
+.collapse-button:hover { background: var(--paper); }
+.dividend-history-panel.collapsed #dividendHistoryContent { display: none; }
+.dividend-history-panel.collapsed { background: #fbfcfb; }
+.section-collapse-row { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+.projection-panel.collapsed #projectionContent { display: none; }
+.projection-panel.collapsed .section-collapse-row { margin-bottom: 0; }
+.panel.positions-collapsed #positionsContent { display: none; }
+#metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media(max-width:600px){.history-actions .count{display:none}}

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gerenciar ativos · Radar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/manage.css">
+  <link rel="stylesheet" href="/manage-positions.css">
+  <link rel="stylesheet" href="/manage-markets.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <a class="brand admin-brand" href="/"><span>R</span><strong>Radar</strong></a>
+      <p class="eyebrow">ADMINISTRAÇÃO</p>
+      <a class="side-item" href="/">← Voltar ao painel</a>
+      <button class="side-item market-side active" data-market-side="nacional">Ativos nacionais</button>
+      <button class="side-item market-side" data-market-side="internacional">Ativos internacionais</button>
+      <a class="side-item" href="/fiis-management.html">Fundos imobiliários</a>
+      <a class="side-item" href="/contribution-plan.html">Planejar aportes</a>
+      <div class="db-card"><small>Banco local</small><strong>portfolio.db</strong><span id="dbStatus">Conectando…</span></div>
+    </aside>
+
+    <main class="admin-main">
+      <header>
+        <div><p class="eyebrow">BANCO DE DADOS</p><h1>Gerenciar ativos</h1><p class="subtitle">Cadastre, corrija e mantenha os tickers monitorados.</p></div>
+        <button class="primary" id="newAsset">+ Novo ativo</button>
+      </header>
+
+      <section class="metrics" id="adminMetrics"></section>
+      <section class="market-tabs" aria-label="Mercado dos ativos">
+        <button class="market-tab active" data-market="nacional"><span>BR</span><div><strong>Ativos nacionais</strong><small>Ações brasileiras e FIIs</small></div><b id="nationalCount">0</b></button>
+        <button class="market-tab" data-market="internacional"><span>INT</span><div><strong>Ativos internacionais</strong><small>Stocks, REITs e ETFs</small></div><b id="internationalCount">0</b></button>
+      </section>
+      <section class="toolbar admin-toolbar">
+        <div class="search-wrap"><span>⌕</span><input id="adminSearch" placeholder="Buscar ticker ou empresa"></div>
+        <select id="categoryFilter"><option value="all">Todas as categorias</option></select>
+      </section>
+
+      <section class="panel admin-panel">
+        <div class="panel-head"><div><p class="eyebrow" id="marketEyebrow">MERCADO NACIONAL</p><h2 id="marketTitle">Ativos nacionais</h2></div><span class="count" id="rowCount"></span></div>
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>ID</th><th>Ativo</th><th>Categoria</th><th>Quantidade</th><th>Cotação</th><th>Patrimônio</th><th>Atualização</th><th>Status</th><th></th></tr></thead>
+            <tbody id="assetRows"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="adminEmpty" hidden>Nenhum registro encontrado.</div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="editDialog">
+    <form id="editForm">
+      <div class="dialog-head"><div><p class="eyebrow" id="formEyebrow">NOVO REGISTRO</p><h2 id="formTitle">Adicionar ativo</h2></div><button type="button" class="icon" id="closeEdit">×</button></div>
+      <input type="hidden" name="id">
+      <label>Ticker<input name="ticker" required maxlength="15" autocomplete="off" placeholder="Ex.: PETR4"></label>
+      <label>Categoria<select name="category" id="editCategory" required></select></label>
+      <label>Segmento<input name="segment" maxlength="80" placeholder="Ex.: Net Lease, Bancos, Logística"></label>
+      <label>Quantidade que possuo<input name="quantity" type="number" min="0" step="0.000001" required value="0" placeholder="Ex.: 100"></label>
+      <p class="form-help">A cotação e os dividendos serão consultados no Investidor10 ao salvar.</p>
+      <p class="form-error" id="editError"></p>
+      <button class="primary full" type="submit">Salvar ativo</button>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+  <script src="/manage.js"></script>
+</body>
+</html>

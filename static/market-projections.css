@@ -1,0 +1,44 @@
+.market-projections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+#marketProjectionHeader { margin-bottom: 22px; }
+#marketProjections + #singleProjection { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--line); }
+.monthly-section { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--line); }
+.monthly-head { margin-bottom: 22px; }
+.monthly-markets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+.monthly-card { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 14px; }
+.monthly-card-head { display: flex; justify-content: space-between; align-items: flex-start; }
+.monthly-card-head small, .monthly-card-head strong { display: block; }
+.monthly-card-head small { color: var(--muted); }
+.monthly-card-head strong { margin-top: 4px; font: 700 18px Manrope; }
+.monthly-chart { display: flex; align-items: flex-end; gap: 7px; height: 220px; padding: 30px 4px 25px; margin-top: 18px; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(to bottom,#fff 0,#fff 43px,#edf1ee 44px); overflow-x: auto; }
+.month-column { position: relative; display: flex; flex: 1; align-items: flex-end; justify-content: center; height: 100%; min-width: 29px; }
+.month-bar { position: relative; width: min(25px, 75%); min-height: 2px; border-radius: 5px 5px 0 0; background: var(--green); }
+.month-bar.future { background: repeating-linear-gradient(135deg,var(--gold),var(--gold) 5px,#ddc58f 5px,#ddc58f 9px); }
+.month-bar span { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 7px; font-weight: 700; white-space: nowrap; }
+.month-label { position: absolute; bottom: -19px; font-size: 8px; color: var(--muted); text-transform: uppercase; }
+.monthly-total { display: flex; justify-content: space-between; gap: 15px; margin-top: 25px; color: var(--muted); font-size: 10px; }
+.monthly-total strong { color: var(--ink); font-size: 12px; }
+.monthly-legend { display: flex; gap: 15px; margin-top: 12px; color: var(--muted); font-size: 9px; }
+.monthly-legend span { display: flex; align-items: center; gap: 5px; }
+.monthly-legend i { width: 8px; height: 8px; border-radius: 2px; }
+.paid-month { background: var(--green); }
+.future-month { background: var(--gold); }
+.market-projection { min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 14px; }
+.market-projection-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; }
+.market-projection-head small { display: block; color: var(--muted); margin-bottom: 4px; }
+.market-projection-head h3 { margin: 0; font: 700 20px Manrope; }
+.market-code { padding: 6px 9px; border-radius: 20px; background: var(--mint); color: var(--green); font-size: 10px; font-weight: 800; }
+.market-projection-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 19px 0; }
+.market-projection-summary div { padding: 12px; border-radius: 9px; background: var(--paper); }
+.market-projection-summary small, .market-projection-summary strong { display: block; }
+.market-projection-summary small { min-height: 28px; color: var(--muted); font-size: 9px; }
+.market-projection-summary strong { margin-top: 4px; font: 700 14px Manrope; }
+.market-chart { display: flex; align-items: flex-end; gap: 9px; height: 205px; padding: 29px 4px 23px; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(to bottom,#fff 0,#fff 43px,#edf1ee 44px); }
+.market-chart-column { position: relative; display: flex; flex: 1; align-items: flex-end; justify-content: center; gap: 3px; height: 100%; min-width: 40px; }
+.market-bar { position: relative; width: 22px; min-height: 2px; border-radius: 5px 5px 0 0; background: var(--green); }
+.market-bar.projected { background: repeating-linear-gradient(135deg,var(--gold),var(--gold) 5px,#ddc58f 5px,#ddc58f 9px); }
+.market-bar span { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 8px; font-weight: 700; white-space: nowrap; }
+.market-year { position: absolute; bottom: -19px; font-size: 9px; color: var(--muted); }
+.market-projection-note { margin: 26px 0 0; color: var(--muted); font-size: 10px; }
+.market-projection-empty { display: grid; place-items: center; height: 245px; color: var(--muted); text-align: center; font-size: 12px; }
+@media(max-width:1050px){.market-projections,.monthly-markets{grid-template-columns:1fr}}
+@media(max-width:520px){.market-projection{padding:16px}.market-projection-summary{grid-template-columns:1fr}.market-projection-summary small{min-height:0}.market-chart{overflow-x:auto}}

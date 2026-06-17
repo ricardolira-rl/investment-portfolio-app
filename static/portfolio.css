@@ -1,0 +1,19 @@
+.portfolio-panel { margin-bottom: 24px; padding: 26px 28px; background: white; border: 1px solid var(--line); border-radius: 16px; }
+.portfolio-head { display: flex; justify-content: space-between; gap: 20px; }
+.portfolio-currencies { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-top: 24px; }
+.currency-chart { padding: 20px; border: 1px solid var(--line); border-radius: 13px; }
+.currency-total { display: flex; justify-content: space-between; align-items: end; margin-bottom: 23px; }
+.currency-total small { display: block; color: var(--muted); font-size: 11px; }
+.currency-total strong { font: 800 25px Manrope; }
+.currency-code { padding: 6px 9px; border-radius: 20px; background: var(--mint); color: var(--green); font-size: 11px; font-weight: 700; }
+.wealth-bars { display: grid; gap: 14px; }
+.wealth-row { display: grid; grid-template-columns: minmax(115px, 1fr) 2fr auto; align-items: center; gap: 12px; }
+.wealth-label strong, .wealth-label small { display: block; }
+.wealth-label strong { font-size: 12px; }
+.wealth-label small { margin-top: 2px; color: var(--muted); font-size: 9px; }
+.wealth-track { height: 9px; overflow: hidden; border-radius: 20px; background: #edf1ee; }
+.wealth-fill { height: 100%; min-width: 2px; border-radius: inherit; background: var(--green); }
+.wealth-value { min-width: 80px; text-align: right; font-size: 11px; font-weight: 700; }
+.portfolio-empty { grid-column: 1 / -1; padding: 28px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; }
+@media(max-width:900px){.portfolio-currencies{grid-template-columns:1fr}}
+@media(max-width:520px){.portfolio-panel{padding:21px 18px}.wealth-row{grid-template-columns:90px 1fr}.wealth-value{grid-column:2;text-align:left}}

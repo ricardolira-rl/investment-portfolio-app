@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
 import sqlite3
 import threading
@@ -19,8 +20,8 @@ ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 DATA_DIR = ROOT / "data"
 DB_PATH = DATA_DIR / "portfolio.db"
-HOST = "127.0.0.1"
-PORT = 8080
+HOST = os.environ.get("PORTFOLIO_HOST", "127.0.0.1")
+PORT = int(os.environ.get("PORTFOLIO_PORT", "8080"))
 
 CATEGORIES = {
     "stocks_internacionais": {
@@ -84,6 +85,7 @@ def init_db() -> None:
                 name TEXT,
                 currency TEXT NOT NULL,
                 price REAL,
+                pvp REAL,
                 source_url TEXT,
                 last_updated TEXT,
                 error TEXT,
@@ -110,6 +112,66 @@ def init_db() -> None:
             );
 
             CREATE TABLE IF NOT EXISTS fii_sectors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS stock_management (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL UNIQUE,
+                sector TEXT NOT NULL,
+                allocation_pct REAL NOT NULL DEFAULT 0,
+                max_price REAL NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS stock_sectors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS international_stock_management (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL UNIQUE,
+                sector TEXT NOT NULL,
+                allocation_pct REAL NOT NULL DEFAULT 0,
+                max_price REAL NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS international_stock_sectors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS reit_management (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL UNIQUE,
+                sector TEXT NOT NULL,
+                allocation_pct REAL NOT NULL DEFAULT 0,
+                max_price REAL NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS reit_sectors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS etf_management (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL UNIQUE,
+                sector TEXT NOT NULL,
+                allocation_pct REAL NOT NULL DEFAULT 0,
+                max_price REAL NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS etf_sectors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL COLLATE NOCASE UNIQUE,
                 updated_at TEXT NOT NULL
@@ -143,6 +205,8 @@ def init_db() -> None:
             db.execute("ALTER TABLE assets ADD COLUMN quantity REAL NOT NULL DEFAULT 0")
         if "segment" not in columns:
             db.execute("ALTER TABLE assets ADD COLUMN segment TEXT")
+        if "pvp" not in columns:
+            db.execute("ALTER TABLE assets ADD COLUMN pvp REAL")
         contribution_columns = {row[1] for row in db.execute("PRAGMA table_info(contribution_settings)")}
         if "national_fii_budget" not in contribution_columns:
             db.execute("ALTER TABLE contribution_settings ADD COLUMN national_fii_budget REAL NOT NULL DEFAULT 0")
@@ -158,6 +222,38 @@ def init_db() -> None:
             """
             INSERT OR IGNORE INTO fii_sectors (name, updated_at)
             SELECT DISTINCT sector, ? FROM fii_management
+            WHERE TRIM(sector) <> ''
+            """,
+            (utc_now(),),
+        )
+        db.execute(
+            """
+            INSERT OR IGNORE INTO stock_sectors (name, updated_at)
+            SELECT DISTINCT sector, ? FROM stock_management
+            WHERE TRIM(sector) <> ''
+            """,
+            (utc_now(),),
+        )
+        db.execute(
+            """
+            INSERT OR IGNORE INTO international_stock_sectors (name, updated_at)
+            SELECT DISTINCT sector, ? FROM international_stock_management
+            WHERE TRIM(sector) <> ''
+            """,
+            (utc_now(),),
+        )
+        db.execute(
+            """
+            INSERT OR IGNORE INTO reit_sectors (name, updated_at)
+            SELECT DISTINCT sector, ? FROM reit_management
+            WHERE TRIM(sector) <> ''
+            """,
+            (utc_now(),),
+        )
+        db.execute(
+            """
+            INSERT OR IGNORE INTO etf_sectors (name, updated_at)
+            SELECT DISTINCT sector, ? FROM etf_management
             WHERE TRIM(sector) <> ''
             """,
             (utc_now(),),
@@ -285,6 +381,19 @@ def extract_asset(html: str, fallback_ticker: str) -> dict:
                 name = heading
                 break
 
+    pvp = None
+    for index, text in enumerate(parser.texts[:-1]):
+        normalized = text.casefold().replace(" ", "")
+        if normalized in {"p/vp", "pvp"}:
+            for candidate in parser.texts[index + 1:index + 6]:
+                try:
+                    pvp = parse_number(candidate)
+                    break
+                except ValueError:
+                    continue
+        if pvp is not None:
+            break
+
     dividends = []
     for table in parser.tables:
         if not table:
@@ -309,7 +418,7 @@ def extract_asset(html: str, fallback_ticker: str) -> dict:
         if dividends:
             break
 
-    return {"name": name, "price": price, "dividends": dividends}
+    return {"name": name, "price": price, "pvp": pvp, "dividends": dividends}
 
 
 def source_url(ticker: str, category: str) -> str:
@@ -381,10 +490,10 @@ def refresh_asset(asset_id: int) -> dict:
             result = scrape(asset["ticker"], asset["category"])
             db.execute(
                 """
-                UPDATE assets SET name = ?, price = ?, source_url = ?,
+                UPDATE assets SET name = ?, price = ?, pvp = ?, source_url = ?,
                     last_updated = ?, error = NULL WHERE id = ?
                 """,
-                (result["name"], result["price"], result["source_url"], utc_now(), asset_id),
+                (result["name"], result["price"], result.get("pvp"), result["source_url"], utc_now(), asset_id),
             )
             db.execute("DELETE FROM dividends WHERE asset_id = ?", (asset_id,))
             db.executemany(
@@ -453,21 +562,187 @@ class Handler(BaseHTTPRequestHandler):
                 "sectors": [dict(row) for row in sectors],
             })
             return
+        if path == "/api/stocks-management":
+            with connect() as db:
+                rows = db.execute(
+                    "SELECT * FROM stock_management ORDER BY ticker"
+                ).fetchall()
+                sectors = db.execute(
+                    "SELECT * FROM stock_sectors ORDER BY name COLLATE NOCASE"
+                ).fetchall()
+                assets = db.execute(
+                    """
+                    SELECT ticker, quantity, price, segment,
+                        quantity * COALESCE(price, 0) AS market_value
+                    FROM assets
+                    WHERE category = 'acoes_brasileiras'
+                    ORDER BY ticker
+                    """
+                ).fetchall()
+            self.send_json({
+                "stocks": [dict(row) for row in rows],
+                "portfolio": [dict(row) for row in assets],
+                "sectors": [dict(row) for row in sectors],
+            })
+            return
+        if path == "/api/international-stocks-management":
+            with connect() as db:
+                rows = db.execute(
+                    "SELECT * FROM international_stock_management ORDER BY ticker"
+                ).fetchall()
+                sectors = db.execute(
+                    "SELECT * FROM international_stock_sectors ORDER BY name COLLATE NOCASE"
+                ).fetchall()
+                assets = db.execute(
+                    """
+                    SELECT ticker, quantity, price, segment,
+                        quantity * COALESCE(price, 0) AS market_value
+                    FROM assets
+                    WHERE category = 'stocks_internacionais'
+                    ORDER BY ticker
+                    """
+                ).fetchall()
+            self.send_json({
+                "stocks": [dict(row) for row in rows],
+                "portfolio": [dict(row) for row in assets],
+                "sectors": [dict(row) for row in sectors],
+            })
+            return
+        if path == "/api/reits-management":
+            with connect() as db:
+                rows = db.execute("SELECT * FROM reit_management ORDER BY ticker").fetchall()
+                sectors = db.execute("SELECT * FROM reit_sectors ORDER BY name COLLATE NOCASE").fetchall()
+                assets = db.execute(
+                    """
+                    SELECT ticker, quantity, price, segment,
+                        quantity * COALESCE(price, 0) AS market_value
+                    FROM assets
+                    WHERE category = 'reits_internacionais'
+                    ORDER BY ticker
+                    """
+                ).fetchall()
+            self.send_json({
+                "items": [dict(row) for row in rows],
+                "portfolio": [dict(row) for row in assets],
+                "sectors": [dict(row) for row in sectors],
+            })
+            return
+        if path == "/api/etfs-management":
+            with connect() as db:
+                rows = db.execute("SELECT * FROM etf_management ORDER BY ticker").fetchall()
+                sectors = db.execute("SELECT * FROM etf_sectors ORDER BY name COLLATE NOCASE").fetchall()
+                assets = db.execute(
+                    """
+                    SELECT ticker, quantity, price, segment,
+                        quantity * COALESCE(price, 0) AS market_value
+                    FROM assets
+                    WHERE category = 'etfs_internacionais'
+                    ORDER BY ticker
+                    """
+                ).fetchall()
+            self.send_json({
+                "items": [dict(row) for row in rows],
+                "portfolio": [dict(row) for row in assets],
+                "sectors": [dict(row) for row in sectors],
+            })
+            return
         if path == "/api/contribution-plan":
             with connect() as db:
                 settings = db.execute("SELECT * FROM contribution_settings WHERE id = 1").fetchone()
                 funds = db.execute("SELECT * FROM fii_management ORDER BY ticker").fetchall()
+                stocks = db.execute("SELECT * FROM stock_management ORDER BY ticker").fetchall()
+                international_stocks = db.execute("SELECT * FROM international_stock_management ORDER BY ticker").fetchall()
+                reits = db.execute("SELECT * FROM reit_management ORDER BY ticker").fetchall()
+                etfs = db.execute("SELECT * FROM etf_management ORDER BY ticker").fetchall()
             self.send_json({
                 "settings": dict(settings),
                 "assets": list_assets(),
                 "categories": CATEGORIES,
                 "fii_targets": [dict(row) for row in funds],
+                "stock_targets": [dict(row) for row in stocks],
+                "international_stock_targets": [dict(row) for row in international_stocks],
+                "reit_targets": [dict(row) for row in reits],
+                "etf_targets": [dict(row) for row in etfs],
             })
             return
         self.serve_static(path)
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        management_config = {
+            "/api/reit-sectors": ("reit_sectors",),
+            "/api/etf-sectors": ("etf_sectors",),
+        }
+        if path in management_config:
+            table = management_config[path][0]
+            name = clean_text(str(self.read_json().get("name", "")))[:80]
+            if not name:
+                self.send_json({"error": "Informe o nome do setor"}, 400)
+                return
+            try:
+                with connect() as db:
+                    cursor = db.execute(
+                        f"INSERT INTO {table} (name, updated_at) VALUES (?, ?)",
+                        (name, utc_now()),
+                    )
+                    row = db.execute(f"SELECT * FROM {table} WHERE id = ?", (cursor.lastrowid,)).fetchone()
+                self.send_json(dict(row), 201)
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Este setor jÃ¡ estÃ¡ cadastrado"}, 409)
+            return
+        asset_management_config = {
+            "/api/reits-management": ("reit_management", "reits_internacionais", "Este REIT internacional jÃ¡ estÃ¡ cadastrado"),
+            "/api/etfs-management": ("etf_management", "etfs_internacionais", "Este ETF internacional jÃ¡ estÃ¡ cadastrado"),
+        }
+        if path in asset_management_config:
+            table, category, duplicate_message = asset_management_config[path]
+            payload = self.read_json()
+            ticker = re.sub(r"[^A-Z0-9.\-]", "", str(payload.get("ticker", "")).upper())
+            sector = clean_text(str(payload.get("sector", "")))[:80]
+            try:
+                allocation_pct = float(payload.get("allocation_pct", 0) or 0)
+                max_price = float(payload.get("max_price", 0) or 0)
+            except (TypeError, ValueError):
+                self.send_json({"error": "AlocaÃ§Ã£o ou preÃ§o mÃ¡ximo invÃ¡lido"}, 400)
+                return
+            if not ticker or not sector or allocation_pct < 0 or max_price < 0:
+                self.send_json({"error": "Preencha todos os campos com valores vÃ¡lidos"}, 400)
+                return
+            try:
+                with connect() as db:
+                    cursor = db.execute(
+                        f"""
+                        INSERT INTO {table}
+                            (ticker, sector, allocation_pct, max_price, updated_at)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (ticker, sector, allocation_pct, max_price, utc_now()),
+                    )
+                    db.execute(
+                        "UPDATE assets SET segment = ? WHERE ticker = ? AND category = ?",
+                        (sector, ticker, category),
+                    )
+                    row = db.execute(f"SELECT * FROM {table} WHERE id = ?", (cursor.lastrowid,)).fetchone()
+                self.send_json(dict(row), 201)
+            except sqlite3.IntegrityError:
+                self.send_json({"error": duplicate_message}, 409)
+            return
+        if path == "/api/international-stock-sectors":
+            name = clean_text(str(self.read_json().get("name", "")))[:80]
+            if not name:
+                self.send_json({"error": "Informe o nome do setor"}, 400)
+                return
+            try:
+                with connect() as db:
+                    cursor = db.execute(
+                        "INSERT INTO international_stock_sectors (name, updated_at) VALUES (?, ?)",
+                        (name, utc_now()),
+                    )
+                    row = db.execute("SELECT * FROM international_stock_sectors WHERE id = ?", (cursor.lastrowid,)).fetchone()
+                self.send_json(dict(row), 201)
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Este setor jÃ¡ estÃ¡ cadastrado"}, 409)
+            return
         if path == "/api/fii-sectors":
             name = clean_text(str(self.read_json().get("name", "")))[:80]
             if not name:
@@ -480,6 +755,22 @@ class Handler(BaseHTTPRequestHandler):
                         (name, utc_now()),
                     )
                     row = db.execute("SELECT * FROM fii_sectors WHERE id = ?", (cursor.lastrowid,)).fetchone()
+                self.send_json(dict(row), 201)
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Este setor já está cadastrado"}, 409)
+            return
+        if path == "/api/stock-sectors":
+            name = clean_text(str(self.read_json().get("name", "")))[:80]
+            if not name:
+                self.send_json({"error": "Informe o nome do setor"}, 400)
+                return
+            try:
+                with connect() as db:
+                    cursor = db.execute(
+                        "INSERT INTO stock_sectors (name, updated_at) VALUES (?, ?)",
+                        (name, utc_now()),
+                    )
+                    row = db.execute("SELECT * FROM stock_sectors WHERE id = ?", (cursor.lastrowid,)).fetchone()
                 self.send_json(dict(row), 201)
             except sqlite3.IntegrityError:
                 self.send_json({"error": "Este setor já está cadastrado"}, 409)
@@ -515,6 +806,70 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(dict(row), 201)
             except sqlite3.IntegrityError:
                 self.send_json({"error": "Este fundo imobiliário já está cadastrado"}, 409)
+            return
+        if path == "/api/stocks-management":
+            payload = self.read_json()
+            ticker = re.sub(r"[^A-Z0-9.\-]", "", str(payload.get("ticker", "")).upper())
+            sector = clean_text(str(payload.get("sector", "")))[:80]
+            try:
+                allocation_pct = float(payload.get("allocation_pct", 0) or 0)
+                max_price = float(payload.get("max_price", 0) or 0)
+            except (TypeError, ValueError):
+                self.send_json({"error": "Alocação ou preço máximo inválido"}, 400)
+                return
+            if not ticker or not sector or allocation_pct < 0 or max_price < 0:
+                self.send_json({"error": "Preencha todos os campos com valores válidos"}, 400)
+                return
+            try:
+                with connect() as db:
+                    cursor = db.execute(
+                        """
+                        INSERT INTO stock_management
+                            (ticker, sector, allocation_pct, max_price, updated_at)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (ticker, sector, allocation_pct, max_price, utc_now()),
+                    )
+                    db.execute(
+                        "UPDATE assets SET segment = ? WHERE ticker = ? AND category = 'acoes_brasileiras'",
+                        (sector, ticker),
+                    )
+                    row = db.execute("SELECT * FROM stock_management WHERE id = ?", (cursor.lastrowid,)).fetchone()
+                self.send_json(dict(row), 201)
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Esta ação brasileira já está cadastrada"}, 409)
+            return
+        if path == "/api/international-stocks-management":
+            payload = self.read_json()
+            ticker = re.sub(r"[^A-Z0-9.\-]", "", str(payload.get("ticker", "")).upper())
+            sector = clean_text(str(payload.get("sector", "")))[:80]
+            try:
+                allocation_pct = float(payload.get("allocation_pct", 0) or 0)
+                max_price = float(payload.get("max_price", 0) or 0)
+            except (TypeError, ValueError):
+                self.send_json({"error": "AlocaÃ§Ã£o ou preÃ§o mÃ¡ximo invÃ¡lido"}, 400)
+                return
+            if not ticker or not sector or allocation_pct < 0 or max_price < 0:
+                self.send_json({"error": "Preencha todos os campos com valores vÃ¡lidos"}, 400)
+                return
+            try:
+                with connect() as db:
+                    cursor = db.execute(
+                        """
+                        INSERT INTO international_stock_management
+                            (ticker, sector, allocation_pct, max_price, updated_at)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (ticker, sector, allocation_pct, max_price, utc_now()),
+                    )
+                    db.execute(
+                        "UPDATE assets SET segment = ? WHERE ticker = ? AND category = 'stocks_internacionais'",
+                        (sector, ticker),
+                    )
+                    row = db.execute("SELECT * FROM international_stock_management WHERE id = ?", (cursor.lastrowid,)).fetchone()
+                self.send_json(dict(row), 201)
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Esta stock internacional jÃ¡ estÃ¡ cadastrada"}, 409)
             return
         if path == "/api/assets":
             payload = self.read_json()
@@ -556,6 +911,70 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self) -> None:
         path = urlparse(self.path).path
+        sector_management_match = re.fullmatch(r"/api/(reit|etf)-sectors/(\d+)", path)
+        if sector_management_match:
+            kind = sector_management_match.group(1)
+            sector_table = f"{kind}_sectors"
+            management_table = f"{kind}_management"
+            category = "reits_internacionais" if kind == "reit" else "etfs_internacionais"
+            name = clean_text(str(self.read_json().get("name", "")))[:80]
+            if not name:
+                self.send_json({"error": "Informe o nome do setor"}, 400)
+                return
+            sector_id = int(sector_management_match.group(2))
+            try:
+                with connect() as db:
+                    current = db.execute(f"SELECT * FROM {sector_table} WHERE id = ?", (sector_id,)).fetchone()
+                    if not current:
+                        self.send_json({"error": "Setor nÃ£o encontrado"}, 404)
+                        return
+                    db.execute(f"UPDATE {sector_table} SET name = ?, updated_at = ? WHERE id = ?", (name, utc_now(), sector_id))
+                    db.execute(f"UPDATE {management_table} SET sector = ?, updated_at = ? WHERE sector = ? COLLATE NOCASE", (name, utc_now(), current["name"]))
+                    db.execute("UPDATE assets SET segment = ? WHERE category = ? AND segment = ? COLLATE NOCASE", (name, category, current["name"]))
+                    row = db.execute(f"SELECT * FROM {sector_table} WHERE id = ?", (sector_id,)).fetchone()
+                self.send_json(dict(row))
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Este setor jÃ¡ estÃ¡ cadastrado"}, 409)
+            return
+        asset_management_match = re.fullmatch(r"/api/(reits|etfs)-management/(\d+)", path)
+        if asset_management_match:
+            kind = asset_management_match.group(1)
+            table = "reit_management" if kind == "reits" else "etf_management"
+            category = "reits_internacionais" if kind == "reits" else "etfs_internacionais"
+            not_found = "REIT internacional nÃ£o encontrado" if kind == "reits" else "ETF internacional nÃ£o encontrado"
+            payload = self.read_json()
+            ticker = re.sub(r"[^A-Z0-9.\-]", "", str(payload.get("ticker", "")).upper())
+            sector = clean_text(str(payload.get("sector", "")))[:80]
+            try:
+                allocation_pct = float(payload.get("allocation_pct", 0) or 0)
+                max_price = float(payload.get("max_price", 0) or 0)
+            except (TypeError, ValueError):
+                self.send_json({"error": "AlocaÃ§Ã£o ou preÃ§o mÃ¡ximo invÃ¡lido"}, 400)
+                return
+            if not ticker or not sector or allocation_pct < 0 or max_price < 0:
+                self.send_json({"error": "Preencha todos os campos com valores vÃ¡lidos"}, 400)
+                return
+            try:
+                with connect() as db:
+                    cursor = db.execute(
+                        f"""
+                        UPDATE {table} SET ticker = ?, sector = ?, allocation_pct = ?,
+                            max_price = ?, updated_at = ? WHERE id = ?
+                        """,
+                        (ticker, sector, allocation_pct, max_price, utc_now(), int(asset_management_match.group(2))),
+                    )
+                    if not cursor.rowcount:
+                        self.send_json({"error": not_found}, 404)
+                        return
+                    db.execute(
+                        "UPDATE assets SET segment = ? WHERE ticker = ? AND category = ?",
+                        (sector, ticker, category),
+                    )
+                    row = db.execute(f"SELECT * FROM {table} WHERE id = ?", (int(asset_management_match.group(2)),)).fetchone()
+                self.send_json(dict(row))
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Este ticker jÃ¡ estÃ¡ cadastrado"}, 409)
+            return
         if path == "/api/contribution-plan":
             payload = self.read_json()
             try:
@@ -609,6 +1028,62 @@ class Handler(BaseHTTPRequestHandler):
             except sqlite3.IntegrityError:
                 self.send_json({"error": "Este setor já está cadastrado"}, 409)
             return
+        stock_sector_match = re.fullmatch(r"/api/stock-sectors/(\d+)", path)
+        if stock_sector_match:
+            name = clean_text(str(self.read_json().get("name", "")))[:80]
+            if not name:
+                self.send_json({"error": "Informe o nome do setor"}, 400)
+                return
+            sector_id = int(stock_sector_match.group(1))
+            try:
+                with connect() as db:
+                    current = db.execute("SELECT * FROM stock_sectors WHERE id = ?", (sector_id,)).fetchone()
+                    if not current:
+                        self.send_json({"error": "Setor não encontrado"}, 404)
+                        return
+                    db.execute("UPDATE stock_sectors SET name = ?, updated_at = ? WHERE id = ?", (name, utc_now(), sector_id))
+                    db.execute("UPDATE stock_management SET sector = ?, updated_at = ? WHERE sector = ? COLLATE NOCASE", (name, utc_now(), current["name"]))
+                    db.execute("UPDATE assets SET segment = ? WHERE category = 'acoes_brasileiras' AND segment = ? COLLATE NOCASE", (name, current["name"]))
+                    row = db.execute("SELECT * FROM stock_sectors WHERE id = ?", (sector_id,)).fetchone()
+                self.send_json(dict(row))
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Este setor já está cadastrado"}, 409)
+            return
+        international_stock_sector_match = re.fullmatch(r"/api/international-stock-sectors/(\d+)", path)
+        if international_stock_sector_match:
+            name = clean_text(str(self.read_json().get("name", "")))[:80]
+            if not name:
+                self.send_json({"error": "Informe o nome do setor"}, 400)
+                return
+            sector_id = int(international_stock_sector_match.group(1))
+            try:
+                with connect() as db:
+                    current = db.execute("SELECT * FROM international_stock_sectors WHERE id = ?", (sector_id,)).fetchone()
+                    if not current:
+                        self.send_json({"error": "Setor nÃ£o encontrado"}, 404)
+                        return
+                    db.execute("UPDATE international_stock_sectors SET name = ?, updated_at = ? WHERE id = ?", (name, utc_now(), sector_id))
+                    db.execute("UPDATE international_stock_management SET sector = ?, updated_at = ? WHERE sector = ? COLLATE NOCASE", (name, utc_now(), current["name"]))
+                    db.execute("UPDATE assets SET segment = ? WHERE category = 'stocks_internacionais' AND segment = ? COLLATE NOCASE", (name, current["name"]))
+                    row = db.execute("SELECT * FROM international_stock_sectors WHERE id = ?", (sector_id,)).fetchone()
+                self.send_json(dict(row))
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Este setor jÃ¡ estÃ¡ cadastrado"}, 409)
+            return
+        international_stock_sector_match = re.fullmatch(r"/api/international-stock-sectors/(\d+)", path)
+        if international_stock_sector_match:
+            with connect() as db:
+                sector = db.execute("SELECT * FROM international_stock_sectors WHERE id = ?", (int(international_stock_sector_match.group(1)),)).fetchone()
+                if not sector:
+                    self.send_json({"error": "Setor nÃ£o encontrado"}, 404)
+                    return
+                usage = db.execute("SELECT COUNT(*) FROM international_stock_management WHERE sector = ? COLLATE NOCASE", (sector["name"],)).fetchone()[0]
+                if usage:
+                    self.send_json({"error": f"O setor estÃ¡ vinculado a {usage} stock(s) e nÃ£o pode ser excluÃ­do"}, 409)
+                    return
+                db.execute("DELETE FROM international_stock_sectors WHERE id = ?", (sector["id"],))
+            self.send_json({}, 204)
+            return
         fii_match = re.fullmatch(r"/api/fii-management/(\d+)", path)
         if fii_match:
             payload = self.read_json()
@@ -644,6 +1119,82 @@ class Handler(BaseHTTPRequestHandler):
             except sqlite3.IntegrityError:
                 self.send_json({"error": "Este ticker já está cadastrado"}, 409)
             return
+        stock_match = re.fullmatch(r"/api/stocks-management/(\d+)", path)
+        if stock_match:
+            payload = self.read_json()
+            ticker = re.sub(r"[^A-Z0-9.\-]", "", str(payload.get("ticker", "")).upper())
+            sector = clean_text(str(payload.get("sector", "")))[:80]
+            try:
+                allocation_pct = float(payload.get("allocation_pct", 0) or 0)
+                max_price = float(payload.get("max_price", 0) or 0)
+            except (TypeError, ValueError):
+                self.send_json({"error": "Alocação ou preço máximo inválido"}, 400)
+                return
+            if not ticker or not sector or allocation_pct < 0 or max_price < 0:
+                self.send_json({"error": "Preencha todos os campos com valores válidos"}, 400)
+                return
+            try:
+                with connect() as db:
+                    cursor = db.execute(
+                        """
+                        UPDATE stock_management SET ticker = ?, sector = ?, allocation_pct = ?,
+                            max_price = ?, updated_at = ? WHERE id = ?
+                        """,
+                        (ticker, sector, allocation_pct, max_price, utc_now(), int(stock_match.group(1))),
+                    )
+                    if not cursor.rowcount:
+                        self.send_json({"error": "Ação brasileira não encontrada"}, 404)
+                        return
+                    db.execute(
+                        "UPDATE assets SET segment = ? WHERE ticker = ? AND category = 'acoes_brasileiras'",
+                        (sector, ticker),
+                    )
+                    row = db.execute("SELECT * FROM stock_management WHERE id = ?", (int(stock_match.group(1)),)).fetchone()
+                self.send_json(dict(row))
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Este ticker já está cadastrado"}, 409)
+            return
+        international_stock_match = re.fullmatch(r"/api/international-stocks-management/(\d+)", path)
+        if international_stock_match:
+            payload = self.read_json()
+            ticker = re.sub(r"[^A-Z0-9.\-]", "", str(payload.get("ticker", "")).upper())
+            sector = clean_text(str(payload.get("sector", "")))[:80]
+            try:
+                allocation_pct = float(payload.get("allocation_pct", 0) or 0)
+                max_price = float(payload.get("max_price", 0) or 0)
+            except (TypeError, ValueError):
+                self.send_json({"error": "AlocaÃ§Ã£o ou preÃ§o mÃ¡ximo invÃ¡lido"}, 400)
+                return
+            if not ticker or not sector or allocation_pct < 0 or max_price < 0:
+                self.send_json({"error": "Preencha todos os campos com valores vÃ¡lidos"}, 400)
+                return
+            try:
+                with connect() as db:
+                    cursor = db.execute(
+                        """
+                        UPDATE international_stock_management SET ticker = ?, sector = ?, allocation_pct = ?,
+                            max_price = ?, updated_at = ? WHERE id = ?
+                        """,
+                        (ticker, sector, allocation_pct, max_price, utc_now(), int(international_stock_match.group(1))),
+                    )
+                    if not cursor.rowcount:
+                        self.send_json({"error": "Stock internacional nÃ£o encontrada"}, 404)
+                        return
+                    db.execute(
+                        "UPDATE assets SET segment = ? WHERE ticker = ? AND category = 'stocks_internacionais'",
+                        (sector, ticker),
+                    )
+                    row = db.execute("SELECT * FROM international_stock_management WHERE id = ?", (int(international_stock_match.group(1)),)).fetchone()
+                self.send_json(dict(row))
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Este ticker jÃ¡ estÃ¡ cadastrado"}, 409)
+            return
+        international_stock_match = re.fullmatch(r"/api/international-stocks-management/(\d+)", path)
+        if international_stock_match:
+            with connect() as db:
+                cursor = db.execute("DELETE FROM international_stock_management WHERE id = ?", (int(international_stock_match.group(1)),))
+            self.send_json({}, 204 if cursor.rowcount else 404)
+            return
         match = re.fullmatch(r"/api/assets/(\d+)", path)
         if not match:
             self.send_json({"error": "Rota não encontrada"}, 404)
@@ -672,7 +1223,7 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute(
                         """
                         UPDATE assets SET ticker = ?, category = ?, quantity = ?, segment = ?, currency = ?, name = NULL,
-                            price = NULL, source_url = NULL, last_updated = NULL, error = NULL
+                            price = NULL, pvp = NULL, source_url = NULL, last_updated = NULL, error = NULL
                         WHERE id = ?
                         """,
                         (ticker, category, quantity, segment, CATEGORIES[category]["currency"], asset_id),
@@ -691,6 +1242,51 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         path = urlparse(self.path).path
+        sector_management_match = re.fullmatch(r"/api/(reit|etf)-sectors/(\d+)", path)
+        if sector_management_match:
+            kind = sector_management_match.group(1)
+            sector_table = f"{kind}_sectors"
+            management_table = f"{kind}_management"
+            label = "REIT" if kind == "reit" else "ETF"
+            with connect() as db:
+                sector = db.execute(f"SELECT * FROM {sector_table} WHERE id = ?", (int(sector_management_match.group(2)),)).fetchone()
+                if not sector:
+                    self.send_json({"error": "Setor nÃ£o encontrado"}, 404)
+                    return
+                usage = db.execute(f"SELECT COUNT(*) FROM {management_table} WHERE sector = ? COLLATE NOCASE", (sector["name"],)).fetchone()[0]
+                if usage:
+                    self.send_json({"error": f"O setor estÃ¡ vinculado a {usage} {label}(s) e nÃ£o pode ser excluÃ­do"}, 409)
+                    return
+                db.execute(f"DELETE FROM {sector_table} WHERE id = ?", (sector["id"],))
+            self.send_json({}, 204)
+            return
+        asset_management_match = re.fullmatch(r"/api/(reits|etfs)-management/(\d+)", path)
+        if asset_management_match:
+            table = "reit_management" if asset_management_match.group(1) == "reits" else "etf_management"
+            with connect() as db:
+                cursor = db.execute(f"DELETE FROM {table} WHERE id = ?", (int(asset_management_match.group(2)),))
+            self.send_json({}, 204 if cursor.rowcount else 404)
+            return
+        international_stock_sector_match = re.fullmatch(r"/api/international-stock-sectors/(\d+)", path)
+        if international_stock_sector_match:
+            with connect() as db:
+                sector = db.execute("SELECT * FROM international_stock_sectors WHERE id = ?", (int(international_stock_sector_match.group(1)),)).fetchone()
+                if not sector:
+                    self.send_json({"error": "Setor nÃ£o encontrado"}, 404)
+                    return
+                usage = db.execute("SELECT COUNT(*) FROM international_stock_management WHERE sector = ? COLLATE NOCASE", (sector["name"],)).fetchone()[0]
+                if usage:
+                    self.send_json({"error": f"O setor estÃ¡ vinculado a {usage} stock(s) e nÃ£o pode ser excluÃ­do"}, 409)
+                    return
+                db.execute("DELETE FROM international_stock_sectors WHERE id = ?", (sector["id"],))
+            self.send_json({}, 204)
+            return
+        international_stock_match = re.fullmatch(r"/api/international-stocks-management/(\d+)", path)
+        if international_stock_match:
+            with connect() as db:
+                cursor = db.execute("DELETE FROM international_stock_management WHERE id = ?", (int(international_stock_match.group(1)),))
+            self.send_json({}, 204 if cursor.rowcount else 404)
+            return
         sector_match = re.fullmatch(r"/api/fii-sectors/(\d+)", path)
         if sector_match:
             with connect() as db:
@@ -705,10 +1301,30 @@ class Handler(BaseHTTPRequestHandler):
                 db.execute("DELETE FROM fii_sectors WHERE id = ?", (sector["id"],))
             self.send_json({}, 204)
             return
+        stock_sector_match = re.fullmatch(r"/api/stock-sectors/(\d+)", path)
+        if stock_sector_match:
+            with connect() as db:
+                sector = db.execute("SELECT * FROM stock_sectors WHERE id = ?", (int(stock_sector_match.group(1)),)).fetchone()
+                if not sector:
+                    self.send_json({"error": "Setor não encontrado"}, 404)
+                    return
+                usage = db.execute("SELECT COUNT(*) FROM stock_management WHERE sector = ? COLLATE NOCASE", (sector["name"],)).fetchone()[0]
+                if usage:
+                    self.send_json({"error": f"O setor está vinculado a {usage} ação(ões) e não pode ser excluído"}, 409)
+                    return
+                db.execute("DELETE FROM stock_sectors WHERE id = ?", (sector["id"],))
+            self.send_json({}, 204)
+            return
         fii_match = re.fullmatch(r"/api/fii-management/(\d+)", path)
         if fii_match:
             with connect() as db:
                 cursor = db.execute("DELETE FROM fii_management WHERE id = ?", (int(fii_match.group(1)),))
+            self.send_json({}, 204 if cursor.rowcount else 404)
+            return
+        stock_match = re.fullmatch(r"/api/stocks-management/(\d+)", path)
+        if stock_match:
+            with connect() as db:
+                cursor = db.execute("DELETE FROM stock_management WHERE id = ?", (int(stock_match.group(1)),))
             self.send_json({}, 204 if cursor.rowcount else 404)
             return
         match = re.fullmatch(r"/api/assets/(\d+)", path)

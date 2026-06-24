@@ -18,9 +18,17 @@
       <a class="brand admin-brand" href="/"><span>R</span><strong>Radar</strong></a>
       <p class="eyebrow">ADMINISTRAÇÃO</p>
       <a class="side-item" href="/">← Voltar ao painel</a>
+      <p class="side-label">Banco de ativos</p>
       <button class="side-item market-side active" data-market-side="nacional">Ativos nacionais</button>
       <button class="side-item market-side" data-market-side="internacional">Ativos internacionais</button>
+      <p class="side-label">Carteira nacional</p>
       <a class="side-item" href="/fiis-management.html">Fundos imobiliários</a>
+      <a class="side-item" href="/stocks-management.html">Ações brasileiras</a>
+      <p class="side-label">Carteira internacional</p>
+      <a class="side-item" href="/international-stocks-management.html">Stocks internacionais</a>
+      <a class="side-item" href="/reits-management.html">REITs internacionais</a>
+      <a class="side-item" href="/etfs-management.html">ETFs internacionais</a>
+      <p class="side-label">Aportes</p>
       <a class="side-item" href="/contribution-plan.html">Planejar aportes</a>
       <div class="db-card"><small>Banco local</small><strong>portfolio.db</strong><span id="dbStatus">Conectando…</span></div>
     </aside>
@@ -60,7 +68,8 @@
       <input type="hidden" name="id">
       <label>Ticker<input name="ticker" required maxlength="15" autocomplete="off" placeholder="Ex.: PETR4"></label>
       <label>Categoria<select name="category" id="editCategory" required></select></label>
-      <label>Segmento<input name="segment" maxlength="80" placeholder="Ex.: Net Lease, Bancos, Logística"></label>
+      <label>Segmento<input name="segment" maxlength="80" list="segmentOptions" placeholder="Ex.: Net Lease, Bancos, Logística"></label>
+      <datalist id="segmentOptions"></datalist>
       <label>Quantidade que possuo<input name="quantity" type="number" min="0" step="0.000001" required value="0" placeholder="Ex.: 100"></label>
       <p class="form-help">A cotação e os dividendos serão consultados no Investidor10 ao salvar.</p>
       <p class="form-error" id="editError"></p>

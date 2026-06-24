@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
@@ -20,8 +20,16 @@
       <div class="brand"><span>R</span><strong>Radar</strong></div>
       <p class="eyebrow">CARTEIRA LOCAL</p>
       <nav id="categoryNav"></nav>
-      <a class="admin-link" href="/manage.html">⚙ Gerenciar banco</a>
-      <a class="admin-link" href="/contribution-plan.html">＋ Planejar aportes</a>
+      <div class="sidebar-section">
+        <p class="eyebrow">GESTÃO DA CARTEIRA</p>
+        <a class="admin-link" href="/manage.html">Gerenciar banco</a>
+        <a class="admin-link" href="/fiis-management.html">Fundos imobiliários</a>
+        <a class="admin-link" href="/stocks-management.html">Ações brasileiras</a>
+        <a class="admin-link" href="/international-stocks-management.html">Stocks internacionais</a>
+        <a class="admin-link" href="/reits-management.html">REITs internacionais</a>
+        <a class="admin-link" href="/etfs-management.html">ETFs internacionais</a>
+        <a class="admin-link" href="/contribution-plan.html">Planejar aportes</a>
+      </div>
       <div class="source-note">
         <span class="pulse"></span>
         <div><strong>Fonte pública</strong><small>Investidor10</small></div>
@@ -35,14 +43,12 @@
           <h1>Seus ativos, sem ruído.</h1>
           <p class="subtitle">Cotações e proventos organizados por classe.</p>
         </div>
-        <button class="primary" id="refreshAll">↻ Atualizar carteira</button>
+        <button class="primary" id="refreshAll">Atualizar carteira</button>
       </header>
-
-      <section class="metrics" id="metrics"></section>
 
       <section class="portfolio-panel" id="portfolioPanel" hidden>
         <div class="portfolio-head">
-          <div><p class="eyebrow">POSIÇÃO ATUAL</p><h2>Patrimônio total</h2><p class="projection-subtitle">Quantidade × cotação atual, separado por moeda.</p></div>
+          <div><p class="eyebrow">POSIÇÃO ATUAL</p><h2>Patrimônio total</h2><p class="projection-subtitle">Quantidade x cotação atual, separado por moeda.</p></div>
         </div>
         <div class="portfolio-currencies" id="portfolioChart"></div>
       </section>
@@ -62,12 +68,6 @@
       <section class="projection-panel">
         <div class="section-collapse-row"><button class="collapse-button" id="toggleProjection" type="button" aria-expanded="true">Ocultar projeção</button></div>
         <div id="projectionContent">
-        <div id="marketProjectionHeader" hidden>
-          <p class="eyebrow">VISÃO POR MERCADO</p>
-          <h2>Projeção consolidada de dividendos</h2>
-          <p class="projection-subtitle">Projeção baseada na média de crescimento entre anos completos.</p>
-        </div>
-        <div id="marketProjections" class="market-projections" hidden></div>
         <div id="monthlyProjection" class="monthly-section" hidden>
           <div class="monthly-head"><p class="eyebrow">FLUXO MENSAL</p><h2>Dividendos por mês</h2><p class="projection-subtitle">Pagamentos realizados e valores futuros já anunciados no ano atual.</p></div>
           <div id="monthlyMarketCharts" class="monthly-markets"></div>
@@ -96,14 +96,14 @@
       </section>
 
       <section class="fii-comparison-panel" id="fiiComparisonPanel" hidden>
-        <div class="panel-head"><div><p class="eyebrow">CARTEIRA ATUAL × RECOMENDADA</p><h2>Comparativo de alocação</h2></div><div class="comparison-head-actions"><span class="count" id="fiiComparisonStatus"></span><div class="comparison-sort"><label for="fiiComparisonSort">Ordenar por</label><select id="fiiComparisonSort"><option value="gapAbs">Diferença para a meta</option><option value="ticker">Ticker</option><option value="currentPct">Alocação atual</option><option value="targetPct">Alocação recomendada</option><option value="gapPct">Saldo da alocação</option><option value="price">Preço atual</option><option value="maxPrice">Preço teto</option><option value="priceDifferencePct">Desconto / ágio</option><option value="dividendYield">D.Y. atual (12m)</option><option value="latestPaymentYield">D.Y. último pagamento</option></select><button type="button" id="fiiComparisonDirection" class="sort-direction" aria-label="Alterar direção da ordenação">↓ Decrescente</button></div></div></div>
+        <div class="panel-head"><div><p class="eyebrow">CARTEIRA ATUAL x RECOMENDADA</p><h2>Comparativo de alocação</h2></div><div class="comparison-head-actions"><span class="count" id="fiiComparisonStatus"></span><div class="comparison-sort"><label for="fiiComparisonSort">Ordenar por</label><select id="fiiComparisonSort"><option value="gapAbs">Diferença para a meta</option><option value="ticker">Ticker</option><option value="currentPct">Alocação atual</option><option value="targetPct">Alocação recomendada</option><option value="gapPct">Saldo da alocação</option><option value="price">Preço atual</option><option value="maxPrice">Preço teto</option><option value="priceDifferencePct">Desconto / ágio</option><option value="dividendYield">D.Y. atual (12m)</option><option value="latestPaymentYield">D.Y. último pagamento</option><option value="pvp">P/VP</option></select><button type="button" id="fiiComparisonDirection" class="sort-direction" aria-label="Alterar direção da ordenação">Decrescente</button></div></div></div>
         <div class="comparison-legend"><span><i class="current-color"></i>Alocação atual</span><span><i class="target-color"></i>Alocação recomendada</span></div>
         <div class="comparison-list" id="fiiComparisonList"></div>
         <div class="comparison-note">O valor de ajuste considera o patrimônio atual dos FIIs e não inclui custos, impostos ou novos recursos. O D.Y. atual usa os proventos dos últimos 12 meses; o D.Y. do último pagamento considera somente o provento mais recente, sem anualização.</div>
       </section>
 
       <section class="toolbar">
-        <div class="search-wrap"><span>⌕</span><input id="search" placeholder="Buscar por ticker ou nome"></div>
+        <div class="search-wrap"><span>Buscar</span><input id="search" placeholder="Buscar por ticker ou nome"></div>
         <button class="secondary" id="openForm">+ Adicionar ativo</button>
       </section>
 
@@ -122,7 +122,7 @@
 
   <dialog id="assetDialog">
     <form id="assetForm">
-      <div class="dialog-head"><div><p class="eyebrow">NOVO MONITORAMENTO</p><h2>Adicionar ativo</h2></div><button type="button" class="icon" id="closeForm">×</button></div>
+      <div class="dialog-head"><div><p class="eyebrow">NOVO MONITORAMENTO</p><h2>Adicionar ativo</h2></div><button type="button" class="icon" id="closeForm">?</button></div>
       <label>Ticker<input name="ticker" required maxlength="15" placeholder="Ex.: PETR4"></label>
       <label>Categoria<select name="category" id="categorySelect" required></select></label>
       <p class="form-help">Ao salvar, a primeira consulta será feita automaticamente.</p>
@@ -132,7 +132,7 @@
   </dialog>
 
   <dialog id="dividendDialog" class="wide">
-    <div class="dialog-head"><div><p class="eyebrow">HISTÓRICO DE PROVENTOS</p><h2 id="dividendTitle"></h2></div><button type="button" class="icon" id="closeDividends">×</button></div>
+    <div class="dialog-head"><div><p class="eyebrow">HISTÓRICO DE PROVENTOS</p><h2 id="dividendTitle"></h2></div><button type="button" class="icon" id="closeDividends">?</button></div>
     <div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Data com</th><th>Pagamento</th><th>Valor por cota</th></tr></thead><tbody id="dividendRows"></tbody></table></div>
   </dialog>
 

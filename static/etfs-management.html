@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gerenciar ETFs internacionais · Radar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/manage.css">
+  <link rel="stylesheet" href="/fiis-management.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <a class="brand admin-brand" href="/"><span>R</span><strong>Radar</strong></a>
+      <p class="eyebrow">ADMINISTRAÇÃO</p>
+      <a class="side-item" href="/">← Voltar ao painel</a>
+      <a class="side-item" href="/manage.html">Ativos do banco</a>
+      <p class="side-label">Carteira nacional</p>
+      <a class="side-item" href="/fiis-management.html">Fundos imobiliários</a>
+      <a class="side-item" href="/stocks-management.html">Ações brasileiras</a>
+      <p class="side-label">Carteira internacional</p>
+      <a class="side-item" href="/international-stocks-management.html">Stocks internacionais</a>
+      <a class="side-item" href="/reits-management.html">REITs internacionais</a>
+      <a class="side-item active" href="/etfs-management.html">ETFs internacionais</a>
+      <p class="side-label">Aportes</p>
+      <a class="side-item" href="/contribution-plan.html">Planejar aportes</a>
+      <div class="db-card"><small>Banco local</small><strong>portfolio.db</strong><span>● Conectado</span></div>
+    </aside>
+    <main class="admin-main">
+      <header>
+        <div><p class="eyebrow">PLANEJAMENTO DE CARTEIRA</p><h1>ETFs internacionais</h1><p class="subtitle">Defina setor, alocação desejada e preço limite em dólar para cada ETF.</p></div>
+        <button class="primary" id="newItem">+ Cadastrar ETF</button>
+      </header>
+      <section class="metrics" id="classMetrics"></section>
+      <section class="panel sector-panel">
+        <div class="panel-head"><div><p class="eyebrow">CLASSIFICAÇÃO</p><h2>Setores de ETFs</h2></div><span class="count" id="sectorCount"></span></div>
+        <form class="sector-form" id="sectorForm"><input name="name" required maxlength="80" autocomplete="off" placeholder="Novo setor, ex.: S&P 500"><button class="secondary" type="submit">Adicionar setor</button></form>
+        <div class="sector-list" id="sectorList"></div>
+        <div class="empty" id="sectorEmpty" hidden>Nenhum setor cadastrado.</div>
+      </section>
+      <section class="toolbar admin-toolbar"><div class="search-wrap"><span>⌕</span><input id="itemSearch" placeholder="Buscar ticker ou setor"></div></section>
+      <section class="panel fii-panel">
+        <div class="panel-head"><div><p class="eyebrow">ESTRATÉGIA</p><h2>ETFs cadastrados</h2></div><span class="count" id="itemCount"></span></div>
+        <div class="table-wrap"><table class="fii-table"><thead><tr><th>Ticker</th><th>Setor</th><th>Alocação</th><th>Preço máximo</th><th>Atualização</th><th></th></tr></thead><tbody id="itemRows"></tbody></table></div>
+        <div class="empty" id="itemEmpty" hidden>Nenhum ETF internacional cadastrado.</div>
+      </section>
+    </main>
+  </div>
+  <dialog id="itemDialog">
+    <form id="itemForm">
+      <div class="dialog-head"><div><p class="eyebrow" id="itemEyebrow">NOVO ETF</p><h2 id="itemFormTitle">Cadastrar ETF</h2></div><button type="button" class="icon" id="closeItem">×</button></div>
+      <input type="hidden" name="id">
+      <label>Ticker<input name="ticker" required maxlength="15" autocomplete="off" placeholder="Ex.: VOO"></label>
+      <label>Setor<select name="sector" required id="itemSector"><option value="">Selecione um setor</option></select></label>
+      <label>Alocação desejada (%)<input name="allocation_pct" type="number" required min="0" max="100" step="0.01" placeholder="Ex.: 10"></label>
+      <label>Preço máximo (US$)<input name="max_price" type="number" required min="0" step="0.01" placeholder="Ex.: 500,00"></label>
+      <p class="form-error" id="itemError"></p>
+      <button class="primary full" type="submit">Salvar ETF</button>
+    </form>
+  </dialog>
+  <div id="toast" class="toast"></div>
+  <script>window.MANAGEMENT_CONFIG={api:"/api/etfs-management",sectorApi:"/api/etf-sectors",singular:"ETF",plural:"ETFs",newEyebrow:"NOVO ETF"};</script>
+  <script src="/international-class-management.js"></script>
+</body>
+</html>

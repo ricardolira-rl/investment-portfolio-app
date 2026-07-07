@@ -85,6 +85,36 @@ Na rede local, acesse:
 http://IP_DO_RASPBERRY:8080/
 ```
 
+## Atualização automática no Raspberry
+
+Depois de instalar o projeto no Raspberry, você pode configurar uma verificação periódica no GitHub. Quando existir uma versão nova na branch `main`, o script atualiza os arquivos da aplicação, preserva o banco `data/portfolio.db` e reinicia o serviço.
+
+Para instalar o agendamento automático:
+
+```bash
+chmod +x auto_update_raspberry.sh
+sudo ./auto_update_raspberry.sh --install-timer
+```
+
+Por padrão, a verificação roda a cada 15 minutos. Para alterar:
+
+```bash
+sudo TIMER_INTERVAL=30min ./auto_update_raspberry.sh --install-timer
+```
+
+Comandos úteis:
+
+```bash
+sudo systemctl status investment-portfolio-app-update.timer
+journalctl -u investment-portfolio-app-update.service -f
+```
+
+Também é possível verificar manualmente:
+
+```bash
+sudo ./auto_update_raspberry.sh --once
+```
+
 ## Páginas principais
 
 - `/` - visão geral da carteira e ativos monitorados.

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calend&aacute;rio data com &middot; Radar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/manage.css">
+  <link rel="stylesheet" href="/ex-date-calendar.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <a class="brand admin-brand" href="/"><span>R</span><strong>Radar</strong></a>
+      <p class="eyebrow">ADMINISTRA&Ccedil;&Atilde;O</p>
+      <nav class="side-nav" aria-label="Navega&ccedil;&atilde;o administrativa">
+        <a class="side-item side-home" href="/"><span>&larr;</span> Voltar ao painel</a>
+        <section class="side-group" aria-labelledby="nav-db"><p class="side-group-head"><span class="side-group-title" id="nav-db">Banco de ativos</span><span class="side-group-hint">Tickers monitorados e dados base.</span></p><div class="side-group-items"><a class="side-item" href="/manage.html">Gerenciar banco</a></div></section>
+        <section class="side-group" aria-labelledby="nav-br"><p class="side-group-head"><span class="side-group-title" id="nav-br">Carteira BR</span><span class="side-group-hint">Metas e pre&ccedil;o teto no Brasil.</span></p><div class="side-group-items"><a class="side-item" href="/fiis-management.html">Fundos imobili&aacute;rios</a><a class="side-item" href="/stocks-management.html">A&ccedil;&otilde;es brasileiras</a></div></section>
+        <section class="side-group" aria-labelledby="nav-int"><p class="side-group-head"><span class="side-group-title" id="nav-int">Carteira INT</span><span class="side-group-hint">Metas e pre&ccedil;o teto em d&oacute;lar.</span></p><div class="side-group-items"><a class="side-item" href="/international-stocks-management.html">Stocks internacionais</a><a class="side-item" href="/reits-management.html">REITs internacionais</a><a class="side-item" href="/etfs-management.html">ETFs internacionais</a></div></section>
+        <section class="side-group" aria-labelledby="nav-contribution"><p class="side-group-head"><span class="side-group-title" id="nav-contribution">Aportes</span><span class="side-group-hint">Simule e acompanhe oportunidades.</span></p><div class="side-group-items"><a class="side-item" href="/contribution-plan.html">Planejar aportes</a><a class="side-item active" href="/ex-date-calendar.html">Calend&aacute;rio data com</a></div></section>
+      </nav>
+      <div class="db-card"><small>Banco local</small><strong>portfolio.db</strong><span>&#9679; Conectado</span></div>
+    </aside>
+    <main class="admin-main">
+      <header>
+        <div><p class="eyebrow">RENDA &middot; CARTEIRA NACIONAL</p><h1>Calend&aacute;rio data com</h1><p class="subtitle">Veja quais FIIs e a&ccedil;&otilde;es brasileiras est&atilde;o mais pr&oacute;ximos da pr&oacute;xima data com estimada.</p></div>
+        <a class="primary calendar-action" href="/contribution-plan.html">Planejar aportes</a>
+      </header>
+
+      <section class="calendar-summary" id="calendarSummary"></section>
+      <section class="calendar-panel">
+        <div class="panel-head"><div><p class="eyebrow">FIIS</p><h2>Fundos imobili&aacute;rios</h2><p class="projection-subtitle">Estimativa baseada no hist&oacute;rico de datas com.</p></div><span class="count" id="fiiCalendarCount"></span></div>
+        <div class="calendar-list" id="fiiCalendarList"></div>
+      </section>
+      <section class="calendar-panel">
+        <div class="panel-head"><div><p class="eyebrow">A&Ccedil;&Otilde;ES</p><h2>A&ccedil;&otilde;es brasileiras</h2><p class="projection-subtitle">Estimativa baseada no padr&atilde;o hist&oacute;rico de divulga&ccedil;&atilde;o de proventos.</p></div><span class="count" id="stockCalendarCount"></span></div>
+        <div class="calendar-list" id="stockCalendarList"></div>
+      </section>
+      <p class="calendar-note">As datas s&atilde;o estimativas calculadas a partir do hist&oacute;rico local. A data oficial depende da divulga&ccedil;&atilde;o do pr&oacute;ximo provento pela empresa ou fundo.</p>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="/ex-date-calendar.js"></script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import os
 import re
 import sqlite3
 import threading
+import unicodedata
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -86,6 +87,7 @@ def init_db() -> None:
                 currency TEXT NOT NULL,
                 price REAL,
                 pvp REAL,
+                liquidity REAL,
                 source_url TEXT,
                 last_updated TEXT,
                 error TEXT,
@@ -207,6 +209,8 @@ def init_db() -> None:
             db.execute("ALTER TABLE assets ADD COLUMN segment TEXT")
         if "pvp" not in columns:
             db.execute("ALTER TABLE assets ADD COLUMN pvp REAL")
+        if "liquidity" not in columns:
+            db.execute("ALTER TABLE assets ADD COLUMN liquidity REAL")
         contribution_columns = {row[1] for row in db.execute("PRAGMA table_info(contribution_settings)")}
         if "national_fii_budget" not in contribution_columns:
             db.execute("ALTER TABLE contribution_settings ADD COLUMN national_fii_budget REAL NOT NULL DEFAULT 0")
@@ -340,7 +344,31 @@ def parse_number(value: str) -> float:
     value = value.replace("R$", "").replace("US$", "").replace("$", "").strip()
     if "," in value:
         value = value.replace(".", "").replace(",", ".")
+    elif re.fullmatch(r"-?\d{1,3}(?:\.\d{3})+", re.sub(r"[^0-9.\-]", "", value)):
+        value = value.replace(".", "")
     return float(re.sub(r"[^0-9.\-]", "", value))
+
+
+def parse_compact_number(value: str) -> float:
+    text = value.casefold().replace("r$", "").replace("us$", "").replace("$", "").strip()
+    normalized = "".join(
+        char for char in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(char)
+    )
+    if re.search(r"\b(bilhao|bilhoes|bi|b)\b", normalized):
+        return parse_number(text) * 1_000_000_000.0
+    if re.search(r"\b(milhao|milhoes|mi|m)\b", normalized):
+        return parse_number(text) * 1_000_000.0
+    if re.search(r"\b(mil|k)\b", normalized):
+        return parse_number(text) * 1_000.0
+    multiplier = 1.0
+    if re.search(r"\b(bilh[oõ]es|bi|b)\b", text):
+        multiplier = 1_000_000_000.0
+    elif re.search(r"\b(milh[oõ]es|mi|m)\b", text):
+        multiplier = 1_000_000.0
+    elif re.search(r"\b(mil|k)\b", text):
+        multiplier = 1_000.0
+    return parse_number(text) * multiplier
 
 
 def parse_date(value: str) -> str | None:
@@ -394,6 +422,33 @@ def extract_asset(html: str, fallback_ticker: str) -> dict:
         if pvp is not None:
             break
 
+    liquidity = None
+    liquidity_labels = ("liquidez diária", "liquidez media diaria", "liquidez média diária")
+    liquidity_labels = liquidity_labels + (
+        "volume médio de negociações diária",
+        "volume medio de negociacoes diaria",
+    )
+    for preferred in (True, False):
+        for index, text in enumerate(parser.texts[:-1]):
+            normalized = text.casefold()
+            if "liquidez corrente" in normalized or "maiores liquidez" in normalized:
+                continue
+            if preferred and not any(label in normalized for label in liquidity_labels):
+                continue
+            if not preferred and "liquidez" not in normalized:
+                continue
+            for candidate in parser.texts[index + 1:index + 8]:
+                if re.search(r"(?:R\$|US\$|\$)\s*[0-9.]+,[0-9]+", candidate):
+                    try:
+                        liquidity = parse_compact_number(candidate)
+                        break
+                    except ValueError:
+                        continue
+            if liquidity is not None:
+                break
+        if liquidity is not None:
+            break
+
     dividends = []
     for table in parser.tables:
         if not table:
@@ -418,7 +473,7 @@ def extract_asset(html: str, fallback_ticker: str) -> dict:
         if dividends:
             break
 
-    return {"name": name, "price": price, "pvp": pvp, "dividends": dividends}
+    return {"name": name, "price": price, "pvp": pvp, "liquidity": liquidity, "dividends": dividends}
 
 
 def source_url(ticker: str, category: str) -> str:
@@ -490,10 +545,10 @@ def refresh_asset(asset_id: int) -> dict:
             result = scrape(asset["ticker"], asset["category"])
             db.execute(
                 """
-                UPDATE assets SET name = ?, price = ?, pvp = ?, source_url = ?,
+                UPDATE assets SET name = ?, price = ?, pvp = ?, liquidity = ?, source_url = ?,
                     last_updated = ?, error = NULL WHERE id = ?
                 """,
-                (result["name"], result["price"], result.get("pvp"), result["source_url"], utc_now(), asset_id),
+                (result["name"], result["price"], result.get("pvp"), result.get("liquidity"), result["source_url"], utc_now(), asset_id),
             )
             db.execute("DELETE FROM dividends WHERE asset_id = ?", (asset_id,))
             db.executemany(
@@ -1223,7 +1278,7 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute(
                         """
                         UPDATE assets SET ticker = ?, category = ?, quantity = ?, segment = ?, currency = ?, name = NULL,
-                            price = NULL, pvp = NULL, source_url = NULL, last_updated = NULL, error = NULL
+                            price = NULL, pvp = NULL, liquidity = NULL, source_url = NULL, last_updated = NULL, error = NULL
                         WHERE id = ?
                         """,
                         (ticker, category, quantity, segment, CATEGORIES[category]["currency"], asset_id),
